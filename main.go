@@ -4,69 +4,41 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
 )
 
-var (
-	thresholdMEM int
-	thresholdCPU int
-	verbose      bool
-)
-
-var (
-	whitespaces = regexp.MustCompile(`\s+`)
-)
-
-type Measure struct {
-	Name      string
-	Threshold int
-	Measure   func() (int, error)
-}
-
-func exit(err *error) {
-	if *err != nil {
-		fmt.Println((*err).Error())
-		os.Exit(1)
-	}
+type measure struct {
+	name      string
+	threshold int
+	measure   func() (int, error)
 }
 
 func main() {
-	var err error
-	defer exit(&err)
-
-	flag.IntVar(&thresholdCPU, "cpu", 80, "CPU threshold, in percentage")
-	flag.IntVar(&thresholdMEM, "mem", 80, "MEM threshold, in percentage")
-	flag.BoolVar(&verbose, "v", false, "verbose mode")
+	flag.IntVar(&measureCPU.threshold, "cpu", 80, "CPU pressure threshold, in percentage")
+	flag.IntVar(&measureMEM.threshold, "mem", 80, "MEM pressure threshold, in percentage")
 	flag.Parse()
 
-	var cpuLoad, memLoad int
-	if cpuLoad, err = measureCPU(); err != nil {
-		return
-	}
-	if memLoad, err = measureMEM(); err != nil {
-		return
+	measures := []measure{measureCPU, measureMEM}
+
+	var fail bool
+
+	for _, m := range measures {
+		var val int
+		var err error
+		if val, err = m.measure(); err != nil {
+			fail = true
+			fmt.Printf("%s: %s; ", m.name, err.Error())
+			continue
+		}
+		if val >= m.threshold {
+			fail = true
+		}
+		fmt.Printf("%s: %d%%; ", m.name, val)
 	}
 
-	var msg string
-	var bad bool
-
-	if cpuLoad >= thresholdCPU || memLoad >= thresholdMEM {
-		bad = true
-	}
-
-	if cpuLoad >= thresholdCPU || verbose {
-		msg += fmt.Sprintf("CPU Pressure: %d%%; ", cpuLoad)
-	}
-	if memLoad >= thresholdMEM || verbose {
-		msg += fmt.Sprintf("MEM Pressure: %d%%; ", memLoad)
-	}
-
-	if len(msg) > 0 {
-		fmt.Println(msg)
-	}
-
-	if bad {
+	if fail {
+		fmt.Print("FAIL\n")
 		os.Exit(1)
+	} else {
+		fmt.Print("PASS\n")
 	}
 }
-

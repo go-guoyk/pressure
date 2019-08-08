@@ -1,3 +1,3 @@
 #!/bin/bash
 
-docker run --privileged --rm guoyk/pressure -v
+docker run --privileged --rm guoyk/pressure
